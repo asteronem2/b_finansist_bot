@@ -140,7 +140,7 @@ async def tg_message(message: Message):
             """, {'user_id': user_id, 'username': username, 'first_name': first_name})
             await bot.send_message(
                 chat_id=EnvData.REPORT_CHAT_ID,
-                text=f'Пользователь @{username or "{без юзернейма}"} впервые написал боту'
+                text=f'@{username or "{без юзернейма}"} нажал /start'
             )
 
         text_low = message.text.lower().strip()
@@ -233,7 +233,7 @@ async def tg_callback(callback: CallbackQuery):
 
                 await bot.send_message(
                     chat_id=EnvData.REPORT_CHAT_ID,
-                    text=f'Пользователь @{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и ждёт вашего ответа'
+                    text=f'@{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и подал заявку'
                 )
 
             else:
