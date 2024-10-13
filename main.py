@@ -155,8 +155,9 @@ async def tg_message(message: Message):
                     [Button(text='ЧТО ВНУТРИ СООБЩЕСТВА', callback_data='what_in')]
                 ])
             )
-    except:
-        pass
+    except Exception as err:
+        print(f"\033[1;31mERROR:\033[37m {err}\033[0m")
+
 
 # noinspection PyBroadException
 @dispatcher.callback_query()
@@ -251,8 +252,9 @@ async def tg_callback(callback: CallbackQuery):
                 )
             except Exception:
                 pass
-    except:
-        pass
+    except Exception as err:
+        print(f"\033[1;31mERROR:\033[37m {err}\033[0m")
+
 
 async def main():
     while True:
