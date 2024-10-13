@@ -138,9 +138,10 @@ async def tg_message(message: Message):
                 INSERT INTO user (user_id, username, first_name, subscribe)
                 VALUES (:user_id, :username, :first_name, 0);
             """, {'user_id': user_id, 'username': username, 'first_name': first_name})
+            mention = f'@{username}' if username else f'id={user_id}'
             await bot.send_message(
                 chat_id=EnvData.REPORT_CHAT_ID,
-                text=f'@{username or "{без юзернейма}"} нажал /start'
+                text=f'@{mention} нажал /start'
             )
 
         text_low = message.text.lower().strip()
@@ -231,9 +232,11 @@ async def tg_callback(callback: CallbackQuery):
                     WHERE user_id = :user_id;
                 """, {'user_id': user_id})
 
+                mention = f'@{callback.from_user.username}' if callback.from_user.username else f'id={user_id}'
+
                 await bot.send_message(
                     chat_id=EnvData.REPORT_CHAT_ID,
-                    text=f'@{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и подал заявку'
+                    text=f'{mention})"} подписался на канал и подал заявку'
                 )
 
             else:
