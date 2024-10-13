@@ -30,7 +30,7 @@ class DotEnvData:
             raise Exception('Необходимо в .env указать основной чат (канал, группа)')
 
         self.BASE_CHAT_ID = int(environ.get('BASE_CHAT_ID') or 0)
-        self.REPORT_CHAT_ID = int(environ.get('REPORT_CHAT_LINK') or 0)
+        self.REPORT_CHAT_ID = int(environ.get('REPORT_CHAT_ID') or 0)
         self.BOT_TOKEN = environ.get('BOT_TOKEN') or ''
         self.BASE_CHAT_LINK = environ.get('BASE_CHAT_LINK') or ''
 
