@@ -10,12 +10,14 @@ from aiogram import exceptions
 from aiogram.types import Message, CallbackQuery, FSInputFile, \
     InlineKeyboardMarkup as Markup, InlineKeyboardButton as Button
 from dotenv import load_dotenv
+from dotenv.main import DotEnv
 
 import texts
 
 
 class DotEnvData:
     BASE_CHAT_ID: int
+    REPORT_CHAT_ID: int
     BOT_TOKEN: str
     BASE_CHAT_LINK: str
 
@@ -27,9 +29,10 @@ class DotEnvData:
         if environ.get('BASE_CHAT_ID') is None:
             raise Exception('Необходимо в .env указать основной чат (канал, группа)')
 
-        self.BASE_CHAT_ID = int(environ.get('BASE_CHAT_ID'))
-        self.BOT_TOKEN = environ.get('BOT_TOKEN')
-        self.BASE_CHAT_LINK = environ.get('BASE_CHAT_LINK')
+        self.BASE_CHAT_ID = int(environ.get('BASE_CHAT_ID') or 0)
+        self.REPORT_CHAT_ID = int(environ.get('REPORT_CHAT_LINK') or 0)
+        self.BOT_TOKEN = environ.get('BOT_TOKEN') or ''
+        self.BASE_CHAT_LINK = environ.get('BASE_CHAT_LINK') or ''
 
 
 @dataclass
@@ -113,128 +116,143 @@ dispatcher = aiogram.Dispatcher()
 allowed_updates = ['message', 'callback_query']
 
 
+# noinspection PyBroadException
 @dispatcher.message()
 async def tg_message(message: Message):
-    if message.chat.type != 'private':
-        return
+    try:
+        if message.chat.type != 'private':
+            return
 
-    user_id = message.from_user.id
+        user_id = message.from_user.id
 
-    db_user = await db.fetchrow(f"""
-        SELECT * FROM user
-        WHERE user_id = :user_id;
-    """, {'user_id': user_id})
+        db_user = await db.fetchrow(f"""
+            SELECT * FROM user
+            WHERE user_id = :user_id;
+        """, {'user_id': user_id})
 
-    username = message.from_user.username
-    first_name = message.from_user.first_name
+        username = message.from_user.username
+        first_name = message.from_user.first_name
 
-    if not db_user:
-        await db.execute(f"""
-            INSERT INTO user (user_id, username, first_name, subscribe)
-            VALUES (:user_id, :username, :first_name, 0);
-        """, {'user_id': user_id, 'username': username, 'first_name': first_name})
+        if not db_user:
+            await db.execute(f"""
+                INSERT INTO user (user_id, username, first_name, subscribe)
+                VALUES (:user_id, :username, :first_name, 0);
+            """, {'user_id': user_id, 'username': username, 'first_name': first_name})
+            await bot.send_message(
+                chat_id=EnvData.REPORT_CHAT_ID,
+                text=f'Пользователь @{username or "{без юзернейма}"} впервые написал боту'
+            )
 
-    text_low = message.text.lower().strip()
+        text_low = message.text.lower().strip()
 
-    if text_low == '/start':
-        await bot.send_photo(
-            chat_id=user_id,
-            caption=texts.first_text,
-            photo=FSInputFile('first_photo.JPG'),
-            reply_markup=Markup(inline_keyboard=[
-                [Button(text='ХОЧУ ПОПАСТЬ', callback_data='want_in')],
-                [Button(text='ЧТО ВНУТРИ СООБЩЕСТВА', callback_data='what_in')]
-            ])
-        )
-
+        if text_low == '/start':
+            await bot.send_photo(
+                chat_id=user_id,
+                caption=texts.first_text,
+                photo=FSInputFile('first_photo.JPG'),
+                reply_markup=Markup(inline_keyboard=[
+                    [Button(text='ХОЧУ ПОПАСТЬ', callback_data='want_in')],
+                    [Button(text='ЧТО ВНУТРИ СООБЩЕСТВА', callback_data='what_in')]
+                ])
+            )
+    except:
+        pass
 
 # noinspection PyBroadException
 @dispatcher.callback_query()
 async def tg_callback(callback: CallbackQuery):
-    if callback.message.chat.type != 'private':
-        return
+    try:
+        if callback.message.chat.type != 'private':
+            return
 
-    user_id = callback.from_user.id
+        user_id = callback.from_user.id
 
-    cdata = callback.data
+        cdata = callback.data
 
-    link = EnvData.BASE_CHAT_LINK
-    if not link:
-        link = (await bot.get_chat(EnvData.BASE_CHAT_ID)).invite_link
-    if not link:
-        link = (await bot.create_chat_invite_link(EnvData.BASE_CHAT_ID)).invite_link
+        link = EnvData.BASE_CHAT_LINK
+        if not link:
+            link = (await bot.get_chat(EnvData.BASE_CHAT_ID)).invite_link
+        if not link:
+            link = (await bot.create_chat_invite_link(EnvData.BASE_CHAT_ID)).invite_link
 
-    if cdata == 'want_in':
-        await bot.send_message(
-            chat_id=user_id,
-            text=texts.second_text,
-            reply_markup=Markup(inline_keyboard=[
-                [Button(text='Подписаться', url=link)],
-                [Button(text='Я подписался', callback_data='i_subscribe')]
-            ])
-        )
-        try:
-            await bot.delete_message(
-                chat_id=user_id,
-                message_id=callback.message.message_id
-            )
-        except:
-            pass
-    elif cdata == 'what_in':
-        await bot.send_message(
-            chat_id=user_id,
-            text=texts.third_text,
-            reply_markup=Markup(inline_keyboard=[
-                [Button(text='ХОЧУ ПОПАСТЬ', callback_data='want_in')]
-            ])
-        )
-        try:
-            await bot.delete_message(
-                chat_id=user_id,
-                message_id=callback.message.message_id
-            )
-        except Exception:
-            pass
-    elif cdata == 'i_subscribe':
-        try:
-            status = (await bot.get_chat_member(
-                chat_id=EnvData.BASE_CHAT_ID,
-                user_id=user_id
-            )).status
-            if status == 'left':
-                subscribed = False
-            else:
-                subscribed = True
-        except aiogram.exceptions.TelegramBadRequest:
-            subscribed = False
-
-        if subscribed is True:
+        if cdata == 'want_in':
             await bot.send_message(
                 chat_id=user_id,
-                text=texts.subscribe
-            )
-            await db.execute("""
-                UPDATE user
-                SET subscribe = 1
-                WHERE user_id = :user_id;
-            """, {'user_id': user_id})
-        else:
-            await bot.send_message(
-                chat_id=user_id,
-                text=texts.not_subscribe,
+                text=texts.second_text,
                 reply_markup=Markup(inline_keyboard=[
                     [Button(text='Подписаться', url=link)],
                     [Button(text='Я подписался', callback_data='i_subscribe')]
                 ])
             )
-        try:
-            await bot.delete_message(
+            try:
+                await bot.delete_message(
+                    chat_id=user_id,
+                    message_id=callback.message.message_id
+                )
+            except:
+                pass
+        elif cdata == 'what_in':
+            await bot.send_message(
                 chat_id=user_id,
-                message_id=callback.message.message_id
+                text=texts.third_text,
+                reply_markup=Markup(inline_keyboard=[
+                    [Button(text='ХОЧУ ПОПАСТЬ', callback_data='want_in')]
+                ])
             )
-        except Exception:
-            pass
+            try:
+                await bot.delete_message(
+                    chat_id=user_id,
+                    message_id=callback.message.message_id
+                )
+            except Exception:
+                pass
+        elif cdata == 'i_subscribe':
+            try:
+                status = (await bot.get_chat_member(
+                    chat_id=EnvData.BASE_CHAT_ID,
+                    user_id=user_id
+                )).status
+                if status == 'left':
+                    subscribed = False
+                else:
+                    subscribed = True
+            except aiogram.exceptions.TelegramBadRequest:
+                subscribed = False
 
+            if subscribed is True:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=texts.subscribe
+                )
+                await db.execute("""
+                    UPDATE user
+                    SET subscribe = 1
+                    WHERE user_id = :user_id;
+                """, {'user_id': user_id})
+
+                await bot.send_message(
+                    chat_id=EnvData.REPORT_CHAT_ID,
+                    text=f'Пользователь @{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и ждёт вашего ответа'
+                )
+
+            else:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=texts.not_subscribe,
+                    reply_markup=Markup(inline_keyboard=[
+                        [Button(text='Подписаться', url=link)],
+                        [Button(text='Я подписался', callback_data='i_subscribe')]
+                    ])
+                )
+            try:
+                await bot.delete_message(
+                    chat_id=user_id,
+                    message_id=callback.message.message_id
+                )
+            except Exception:
+                pass
+    except:
+        pass
 
 async def main():
     while True:
@@ -247,3 +265,11 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
+
+"""
+Криптовалюта на простом языке
+
+Телеграм ATRUMS — https://t.me/+Gsb5CVCNsytjN2Y6
+YouTube — https://www.youtube.com/@ATRUMS
+"""
