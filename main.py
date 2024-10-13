@@ -232,7 +232,7 @@ async def tg_callback(callback: CallbackQuery):
 
                 await bot.send_message(
                     chat_id=EnvData.REPORT_CHAT_ID,
-                    text=f'     Пользователь @{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и ждёт вашего ответа'
+                    text=f'Пользователь @{callback.from_user.username or "{без юзернейма}" + f"(id={callback.from_user.id})"} подписался на канал и ждёт вашего ответа'
                 )
 
             else:
