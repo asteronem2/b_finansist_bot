@@ -172,11 +172,13 @@ async def tg_message(message: Message):
             ws.column_dimensions['B'].width = 13
             ws.column_dimensions['C'].width = 20
             ws.column_dimensions['D'].width = 20
+            ws.column_dimensions['E'].width = 12
 
             ws.cell(row=1, column=1, value='ID')
             ws.cell(row=1, column=2, value='USER_ID')
             ws.cell(row=1, column=3, value='USERNAME')
             ws.cell(row=1, column=4, value='NAME')
+            ws.cell(row=1, column=5, value='SUBSCRIBE')
 
             row = 2
 
@@ -185,7 +187,10 @@ async def tg_message(message: Message):
                 ws.cell(row=row, column=2, value=i.user_id)
                 ws.cell(row=row, column=3, value=i.username or ' ')
                 ws.cell(row=row, column=4, value=i.first_name or ' ')
-
+                if i.subscribe == 1:
+                    ws.cell(row=row, column=5, value='✅')
+                elif i.subscribe == 0:
+                    ws.cell(row=row, column=5, value='❌')
                 row += 1
 
             today = datetime.datetime.today().strftime(format='%Y.%m.%d')
