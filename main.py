@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 import sqlite3
 import time
@@ -10,7 +11,6 @@ from aiogram import exceptions
 from aiogram.types import Message, CallbackQuery, FSInputFile, \
     InlineKeyboardMarkup as Markup, InlineKeyboardButton as Button
 from dotenv import load_dotenv
-from dotenv.main import DotEnv
 
 import texts
 
@@ -20,6 +20,7 @@ class DotEnvData:
     REPORT_CHAT_ID: int
     BOT_TOKEN: str
     BASE_CHAT_LINK: str
+    ADMIN_ID: int
 
     def __init__(self):
         environ = os.environ
@@ -31,6 +32,7 @@ class DotEnvData:
 
         self.BASE_CHAT_ID = int(environ.get('BASE_CHAT_ID') or 0)
         self.REPORT_CHAT_ID = int(environ.get('REPORT_CHAT_ID') or 0)
+        self.ADMIN_ID = int(environ.get('ADMIN_ID'))
         self.BOT_TOKEN = environ.get('BOT_TOKEN') or ''
         self.BASE_CHAT_LINK = environ.get('BASE_CHAT_LINK') or ''
 
@@ -156,6 +158,49 @@ async def tg_message(message: Message):
                     [Button(text='ЧТО ВНУТРИ СООБЩЕСТВА', callback_data='what_in')]
                 ])
             )
+        elif text_low == '/table' and user_id == EnvData.ADMIN_ID:
+            from openpyxl import Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = 'Выгрузка базы данных'
+
+            res = await db.fetch("""
+                SELECT * FROM user;
+            """)
+
+            ws.column_dimensions['A'].width = 3
+            ws.column_dimensions['B'].width = 13
+            ws.column_dimensions['C'].width = 20
+            ws.column_dimensions['D'].width = 20
+
+            ws.cell(row=1, column=1, value='ID')
+            ws.cell(row=1, column=2, value='USER_ID')
+            ws.cell(row=1, column=3, value='USERNAME')
+            ws.cell(row=1, column=4, value='NAME')
+
+            row = 2
+
+            for i in res:
+                ws.cell(row=row, column=1, value=i.id)
+                ws.cell(row=row, column=2, value=i.user_id)
+                ws.cell(row=row, column=3, value=i.username or ' ')
+                ws.cell(row=row, column=4, value=i.first_name or ' ')
+
+                row += 1
+
+            today = datetime.datetime.today().strftime(format='%Y.%m.%d')
+
+            file_name = f'Выгрузка {today}.xlsx'
+
+            wb.save(file_name)
+
+            await bot.send_document(
+                chat_id=user_id,
+                document=FSInputFile(file_name)
+            )
+
+            os.remove(file_name)
+
     except Exception as err:
         print(f"\033[1;31mERROR:\033[37m {err}\033[0m")
 
@@ -236,7 +281,7 @@ async def tg_callback(callback: CallbackQuery):
 
                 await bot.send_message(
                     chat_id=EnvData.REPORT_CHAT_ID,
-                    text=f'{mention})"} подписался на канал и подал заявку'
+                    text=f'{mention})" подписался на канал и подал заявку'
                 )
 
             else:
