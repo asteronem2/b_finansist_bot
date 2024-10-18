@@ -3,6 +3,7 @@ import datetime
 import os
 import sqlite3
 import time
+from itertools import count
 from typing import Union, List
 from attr import dataclass
 
@@ -124,6 +125,8 @@ async def tg_message(message: Message):
     try:
         if message.chat.type != 'private':
             return
+        if not message.text:
+            return
 
         user_id = message.from_user.id
 
@@ -147,6 +150,7 @@ async def tg_message(message: Message):
             )
 
         text_low = message.text.lower().strip()
+        split_n_1 = message.text.split('\n', 1)
 
         if text_low == '/start':
             await bot.send_photo(
@@ -205,6 +209,29 @@ async def tg_message(message: Message):
             )
 
             os.remove(file_name)
+        elif split_n_1[0].lower() == 'рассылка' and user_id == EnvData.ADMIN_ID:
+            res = await db.fetch("""
+                SELECT * FROM user
+                WHERE subscribe = 1;
+            """)
+
+            count_users = 0
+
+            for i in res:
+                try:
+                    await bot.send_message(
+                        chat_id=i.user_id,
+                        text=split_n_1[1]
+                    )
+                    count_users += 1
+                except:
+                    pass
+
+            await bot.send_message(
+                chat_id=message.from_user.id,
+                text=f'Рассылка успешно разослана количеству пользователей: {str(count_users)}'
+            )
+
 
     except Exception as err:
         print(f"\033[1;31mERROR:\033[37m {err}\033[0m")
