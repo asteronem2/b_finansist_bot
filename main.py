@@ -146,7 +146,7 @@ async def tg_message(message: Message):
             mention = f'@{username}' if username else f'id={user_id}'
             await bot.send_message(
                 chat_id=EnvData.REPORT_CHAT_ID,
-                text=f'@{mention} нажал /start'
+                text=f'{mention} нажал /start'
             )
 
         text_low = message.text.lower().strip()
