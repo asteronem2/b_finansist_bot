@@ -61,7 +61,17 @@ class DataBase:
             );
         """)
         self.conn.commit()
-
+        cursor2 = self.conn.cursor()
+        cursor2.execute("""
+            PRAGMA table_info(user);
+        """)
+        columns = [row[1] for row in cursor2.fetchall()]
+        if 'new_user' not in columns:
+            cursor3 = self.conn.cursor()
+            cursor3.execute("""
+                ALTER TABLE user 
+                ADD COLUMN new_user INTEGER DEFAULT 0
+            """)
     async def execute(self, query: str, args: dict) -> None:
         cursor = self.conn.cursor()
         cursor.execute(query, args)
@@ -140,8 +150,8 @@ async def tg_message(message: Message):
 
         if not db_user:
             await db.execute(f"""
-                INSERT INTO user (user_id, username, first_name, subscribe)
-                VALUES (:user_id, :username, :first_name, 0);
+                INSERT INTO user (user_id, username, first_name, subscribe, new_user)
+                VALUES (:user_id, :username, :first_name, 0, 1);
             """, {'user_id': user_id, 'username': username, 'first_name': first_name})
             mention = f'@{username}' if username else f'id={user_id}'
             await bot.send_message(
@@ -153,10 +163,9 @@ async def tg_message(message: Message):
         split_n_1 = message.text.split('\n', 1)
 
         if text_low == '/start':
-            await bot.send_photo(
+            await bot.send_message(
                 chat_id=user_id,
-                caption=texts.first_text,
-                photo=FSInputFile('first_photo.JPG'),
+                text=texts.first_text,
                 reply_markup=Markup(inline_keyboard=[
                     [Button(text='ХОЧУ ПОПАСТЬ', callback_data='want_in')],
                     [Button(text='ЧТО ВНУТРИ СООБЩЕСТВА', callback_data='what_in')]
@@ -209,12 +218,28 @@ async def tg_message(message: Message):
             )
 
             os.remove(file_name)
-        elif split_n_1[0].lower() == 'рассылка' and user_id == EnvData.ADMIN_ID:
-            res = await db.fetch("""
-                SELECT * FROM user
-                WHERE subscribe = 1;
-            """)
-
+        elif split_n_1[0].lower() in ('рассылкавсем', 'рассылкановым', 'рассылкастарым') and user_id == EnvData.ADMIN_ID:
+            if split_n_1[0].lower() == 'рассылкавсем':
+                res = await db.fetch("""
+                    SELECT * FROM user
+                    WHERE subscribe = 1;
+                """)
+            elif split_n_1[0].lower() == 'рассылкановым':
+                res = await db.fetch("""
+                    SELECT * FROM user
+                    WHERE subscribe = 1
+                    AND new_user = 1;
+                """)
+            elif split_n_1[0].lower() == 'рассылкастарым':
+                res = await db.fetch("""
+                    SELECT * FROM user
+                    WHERE subscribe = 1
+                    AND new_user = 0;
+                """)
+            else:
+                res = []
+            if not res:
+                res = []
             count_users = 0
 
             for i in res:
@@ -339,7 +364,8 @@ async def tg_callback(callback: CallbackQuery):
 async def main():
     while True:
         try:
-            await dispatcher.start_polling(bot, polling_timeout=300, allowed_updates=allowed_updates)
+            print('BOT STARTED')
+            await dispatcher.start_polling(bot, polling_timeout=300, allowed_updates=allowed_updates, handle_signals=False)
         except Exception as err:
             print(f"\033[1;31mERROR:\033[37m {err}\033[0m")
             time.sleep(3)
